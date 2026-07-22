@@ -226,9 +226,9 @@ func (l *CheckPing) parsePingRTA(entry map[string]string, output string) {
 	// windows 10
 	// Approximate round trip times in milli-seconds:
 	// Minimum = 5ms, Maximum = 11ms, Average = 7ms
-	reRTA = regexp.MustCompile(` = ([\d.]+)ms,.*? = ([\d.]+)ms,.*? = ([\d.]+)ms`)
+	reRTA = regexp.MustCompile(`=\s*([\d.]+)\s*[^\d\s,]+\s*,.*?=\s*([\d.]+)\s*[^\d\s,]+\s*,.*?=\s*([\d.]+)\s*[^\d\s,]+`)
 	rtaList = reRTA.FindStringSubmatch(output)
-	if len(rtaList) >= 3 {
+	if len(rtaList) >= 4 {
 		entry["rta"] = rtaList[3]
 
 		return
@@ -286,7 +286,7 @@ func (l *CheckPing) parsePingPackets(entry map[string]string, output string) {
 
 	// windows 10
 	// Packets: Sent = 3, Received = 3, Lost = 0 (0% loss),
-	rePackets = regexp.MustCompile(` = (\d+),.*? = (\d+),.*? = (\d+)\s+\(([\d.]+)%`)
+	rePackets = regexp.MustCompile(`=\s*(\d+).*?=\s*(\d+).*?=\s*(\d+).*?\(\D*([\d.]+)%`)
 	packetsList = rePackets.FindStringSubmatch(output)
 	if len(packetsList) >= 5 {
 		entry["sent"] = packetsList[1]
