@@ -1,13 +1,16 @@
 package snclient
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -37,7 +40,13 @@ func init() {
 	)
 }
 
-const DefaultPrivateKeySize = 4096
+const (
+	// DefaultPrivateKeySize sets the default size of the private key to generate for a new CSR request
+	DefaultPrivateKeySize = 4096
+
+	// UpdateRestartDelay sets delay of the restart after requesting an update via API
+	UpdateRestartDelay = 2 * time.Second
+)
 
 type HandlerAdmin struct {
 	noCopy          noCopy
@@ -70,6 +79,13 @@ type replaceCertData struct {
 type logLevelOverrideRequest struct {
 	Level    string  `json:"level"`
 	Duration float64 `json:"duration"`
+}
+
+type updateInstallRequest struct {
+	Channel string `json:"channel"`
+	Restart bool   `json:"restart"`
+	Force   bool   `json:"force"`
+	Version string `json:"version"`
 }
 
 // ensure we fully implement the RequestHandlerHTTP type
@@ -176,6 +192,9 @@ func (l *HandlerWebAdmin) serveLogLevel(res http.ResponseWriter, req *http.Reque
 	decoder.DisallowUnknownFields()
 	data := logLevelOverrideRequest{}
 	if err := decoder.Decode(&data); err != nil {
+		if errors.Is(err, io.EOF) {
+			err = fmt.Errorf("missing post data")
+		}
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusBadRequest)
 		LogError(json.NewEncoder(res).Encode(map[string]any{
@@ -548,6 +567,23 @@ func (l *HandlerWebAdmin) serveUpdate(res http.ResponseWriter, req *http.Request
 		return
 	}
 
+	decoder := json.NewDecoder(req.Body)
+	decoder.DisallowUnknownFields()
+	data := updateInstallRequest{
+		Force:   false,
+		Restart: true,
+	}
+	if err := decoder.Decode(&data); err != nil && !errors.Is(err, io.EOF) {
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusBadRequest)
+		LogError(json.NewEncoder(res).Encode(map[string]any{
+			"success": false,
+			"error":   err.Error(),
+		}))
+
+		return
+	}
+
 	task := l.Handler.snc.Tasks.Get("Updates")
 	mod, ok := task.(*UpdateHandler)
 	if !ok {
@@ -556,7 +592,13 @@ func (l *HandlerWebAdmin) serveUpdate(res http.ResponseWriter, req *http.Request
 		return
 	}
 
-	version, err := mod.CheckUpdates(req.Context(), true, true, true, false, "", "", false)
+	restart := RestartNever
+	if data.Restart {
+		restart = RestartDelayed
+	}
+
+	//nolint:contextcheck // need a new context here, otherwise restarts would be killed when the request is finished
+	version, _, err := mod.CheckUpdates(context.Background(), true, true, restart, false, data.Version, data.Channel, data.Force)
 	if err != nil {
 		l.sendError(res, fmt.Errorf("failed to fetch updates: %s", err.Error()))
 
@@ -565,18 +607,30 @@ func (l *HandlerWebAdmin) serveUpdate(res http.ResponseWriter, req *http.Request
 
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	if version != "" {
-		LogError(json.NewEncoder(res).Encode(map[string]any{
-			"success": true,
-			"message": "update found and installed",
-			"version": version,
-		}))
-	} else {
+	if version == "" {
 		LogError(json.NewEncoder(res).Encode(map[string]any{
 			"success": true,
 			"message": "no new update available",
 		}))
+
+		return
 	}
+
+	if !data.Restart {
+		LogError(json.NewEncoder(res).Encode(map[string]any{
+			"success": true,
+			"message": "update found and downloaded",
+			"version": version,
+		}))
+
+		return
+	}
+
+	LogError(json.NewEncoder(res).Encode(map[string]any{
+		"success": true,
+		"message": fmt.Sprintf("update found and installed, restarting in background (%s delay)", UpdateRestartDelay),
+		"version": version,
+	}))
 }
 
 // check if request used method POST

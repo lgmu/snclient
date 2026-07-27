@@ -20,6 +20,7 @@ type CheckPing struct {
 	packets  int64
 	ipv4     bool
 	ipv6     bool
+	timeout  int64
 }
 
 func NewCheckPing() CheckHandler {
@@ -40,8 +41,9 @@ func (l *CheckPing) Build() *CheckData {
 		args: map[string]CheckArgument{
 			"host":    {value: &l.hostname, description: "host name or ip address to ping"},
 			"packets": {value: &l.packets, description: "number of ICMP ECHO packets to send (default: 5)"},
+			"-t":      {value: &l.timeout, description: "timeout in seconds for each ICMP ECHO packet"},
 			"-4":      {value: &l.ipv4, description: "Force using IPv4."},
-			"-6":      {value: &l.ipv4, description: "Force using IPv6."},
+			"-6":      {value: &l.ipv6, description: "Force using IPv6."},
 		},
 		defaultFilter:   "none",
 		defaultWarning:  "rta > 1000 || pl > 30",
@@ -102,13 +104,22 @@ func (l *CheckPing) addSources(ctx context.Context, check *CheckData) (err error
 
 // run linux ping command
 func (l *CheckPing) addPingLinux(ctx context.Context, check *CheckData) error {
-	cmd := fmt.Sprintf("ping -c %d '%s'", l.packets, l.hostname)
+	cmd := fmt.Sprintf("ping -c %d", l.packets)
 	if l.ipv4 {
 		cmd += " -4"
 	}
 	if l.ipv6 {
 		cmd += " -6"
 	}
+	if l.timeout > 0 {
+		switch runtime.GOOS {
+		case "linux":
+			cmd += fmt.Sprintf(" -W %d", l.timeout)
+		case "darwin", "freebsd":
+			cmd += fmt.Sprintf(" -W %d", l.timeout*1000)
+		}
+	}
+	cmd += fmt.Sprintf(" '%s'", l.hostname)
 
 	command, err := l.snc.MakeCmd(ctx, cmd)
 	if err != nil {
@@ -130,13 +141,17 @@ func (l *CheckPing) addPingLinux(ctx context.Context, check *CheckData) error {
 
 // run ping command on windows
 func (l *CheckPing) addPingWindows(ctx context.Context, check *CheckData) error {
-	cmd := fmt.Sprintf("ping.exe -n %d '%s'", l.packets, l.hostname)
+	cmd := fmt.Sprintf("ping.exe -n %d", l.packets)
 	if l.ipv4 {
 		cmd += " -4"
 	}
 	if l.ipv6 {
 		cmd += " -6"
 	}
+	if l.timeout > 0 {
+		cmd += fmt.Sprintf(" -w %d", l.timeout*1000)
+	}
+	cmd += fmt.Sprintf(" '%s'", l.hostname)
 
 	command, err := l.snc.MakeCmd(ctx, cmd)
 	if err != nil {

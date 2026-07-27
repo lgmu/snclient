@@ -38,7 +38,7 @@ const (
 	SystemCmdNastyCharacters = "$|`&><'\"\\{};\n\r"
 
 	// CacheFileMOde sets the mode to create cache folder
-	CacheFileMOde = 0o750
+	CacheFileMode = 0o750
 )
 
 var DefaultConfig = map[string]ConfigData{
@@ -438,7 +438,7 @@ func (config *Config) parseHTTPInclude(inclURL, srcPath string, section *ConfigS
 	}
 
 	cacheDir := snc.getCacheFolder()
-	err = os.MkdirAll(cacheDir, CacheFileMOde)
+	err = os.MkdirAll(cacheDir, CacheFileMode)
 	if err != nil {
 		return fmt.Errorf("failed to create cache folder %s: %s", cacheDir, err.Error())
 	}
@@ -1052,6 +1052,28 @@ func (cs *ConfigSection) GetStringRaw(key string) (raw []string, val string, ok 
 	}
 
 	return raw, val, ok
+}
+
+// GetStringList returns list of strings from config section.
+// it returns the value if found and sets ok to true.
+func (cs *ConfigSection) GetStringList(key string) (val []string, ok bool) {
+	// parse comma separated list
+	str, ok := cs.GetString(key)
+	if !ok {
+		return val, false
+	}
+
+	if str != "" {
+		for el := range strings.SplitSeq(str, ",") {
+			el = strings.TrimSpace(el)
+			if el == "" {
+				continue
+			}
+			val = append(val, el)
+		}
+	}
+
+	return val, ok
 }
 
 // returns true if value is usable (ex, password is not default)

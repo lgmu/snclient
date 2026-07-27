@@ -101,6 +101,9 @@ func (c *CheckLogFile) Build() *CheckData {
 			{name: "line", description: "Match the content of an entire line"},
 			{name: "columnN", description: "Match the content of the N-th column only if enough columns exists"},
 		},
+		extraFilterAttributes: []*regexp.Regexp{
+			regexp.MustCompile(`^column.*`),
+		},
 		exampleDefault: `
 Alert if there are errors in the snclient log file:
 
@@ -156,6 +159,8 @@ func (c *CheckLogFile) Check(_ context.Context, snc *Agent, check *CheckData, _ 
 		for _, fileName := range filesMatchingPattern {
 			if !c.matchPattern(fileName, allowedPattern) {
 				log.Tracef("allowed pattern check failed for file: %s (pattern: %#v)", fileName, allowedPattern)
+
+				return nil, fmt.Errorf("file %s does not match any allowed pattern", fileName)
 			}
 
 			log.Debugf("adding file: %s", fileName)
@@ -418,13 +423,14 @@ func (c *CheckLogFile) getCustomSplitFunction() bufio.SplitFunc {
 	}
 
 	delim := []byte(c.LineDelimiter)
+	lenD := len(delim)
 
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
 			return 0, nil, nil
 		}
 		if i := bytes.Index(data, delim); i >= 0 {
-			return i + 1, data[0:i], nil
+			return i + lenD, data[0:i], nil
 		}
 
 		// If we're at EOF, we have a final, non-terminated line. Return it.
@@ -461,12 +467,7 @@ func (c *CheckLogFile) getRequiredColumnNumbers(check *CheckData) []int {
 
 // getAllowedPattern returns the list of allowed patterns from the config
 func (c *CheckLogFile) getAllowedPattern() []string {
-	allowedPatternRaw, _ := c.snc.config.Section("/settings/check/logfile").GetString("allowed pattern")
-	allowedPattern := strings.Split(allowedPatternRaw, ",")
-
-	for i := range allowedPattern {
-		allowedPattern[i] = strings.TrimSpace(allowedPattern[i])
-	}
+	allowedPattern, _ := c.snc.config.Section("/settings/check/logfile").GetStringList("allowed pattern")
 
 	return allowedPattern
 }

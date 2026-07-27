@@ -77,7 +77,7 @@ WINDOWS_EXPORTER_VERSION_I386=0.24.0
 WINDOWS_EXPORTER_FILE_I386=windows_exporter-$(WINDOWS_EXPORTER_VERSION_I386)
 WINDOWS_EXPORTER_URL_I386=https://github.com/prometheus-community/windows_exporter/releases/download/v$(WINDOWS_EXPORTER_VERSION_I386)/
 
-WINDOWS_EXPORTER_VERSION=0.31.6
+WINDOWS_EXPORTER_VERSION=0.31.8
 WINDOWS_EXPORTER_FILE=windows_exporter-$(WINDOWS_EXPORTER_VERSION)
 WINDOWS_EXPORTER_URL=https://github.com/prometheus-community/windows_exporter/releases/download/v$(WINDOWS_EXPORTER_VERSION)
 
@@ -473,6 +473,7 @@ deb: | dist
 		build-deb/usr/lib/systemd/system \
 		build-deb/usr/lib/sysusers.d \
 		build-deb/usr/lib/tmpfiles.d \
+		build-deb/etc/init.d \
 		build-deb/etc/logrotate.d \
 		build-deb/usr/share/doc/snclient \
 		build-deb/usr/share/doc/snclient \
@@ -493,6 +494,7 @@ deb: | dist
 	cp ./packaging/snclient.service build-deb/usr/lib/systemd/system/
 	cp ./packaging/snclient.sysusers build-deb/usr/lib/sysusers.d/snclient.conf
 	cp ./packaging/snclient.tmpfiles build-deb/usr/lib/tmpfiles.d/snclient.conf
+	cp ./packaging/debian-snclient-initd build-deb/etc/init.d/snclient
 	cp ./packaging/snclient.logrotate build-deb/etc/logrotate.d/snclient
 	cp Changes build-deb/usr/share/doc/snclient/Changes
 	dch --empty --create --newversion "$(VERSION)" --package "snclient" -D "UNRELEASED" --urgency "low" -c build-deb/usr/share/doc/snclient/changelog "new upstream release"
@@ -516,6 +518,7 @@ deb: | dist
 	find ./build-deb -type f -exec chmod 644 {} \; || true
 	chmod 755 \
 		build-deb/usr/bin/snclient \
+		build-deb/etc/init.d/snclient \
 		build-deb/usr/lib/snclient/node_exporter
 	chmod 755 ./build-deb/DEBIAN/{post,pre}*
 

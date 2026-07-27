@@ -18,15 +18,9 @@ func NewAllowedHostConfig(conf *ConfigSection) (*AllowedHostConfig, error) {
 	ahc := &AllowedHostConfig{}
 
 	// parse / set allowed hosts
-	allowed, _ := conf.GetString("allowed hosts")
-	if allowed != "" {
-		for allow := range strings.SplitSeq(allowed, ",") {
-			allow = strings.TrimSpace(allow)
-			if allow == "" {
-				continue
-			}
-			ahc.Allowed = append(ahc.Allowed, NewAllowedHost(allow))
-		}
+	allowed, _ := conf.GetStringList("allowed hosts")
+	for _, allow := range allowed {
+		ahc.Allowed = append(ahc.Allowed, NewAllowedHost(allow))
 	}
 
 	// parse / set cache allowed hosts
@@ -71,8 +65,8 @@ func (ahc *AllowedHostConfig) Check(ctx context.Context, remoteAddr string) bool
 		return false
 	}
 
-	for _, allow := range ahc.Allowed {
-		if allow.Contains(ctx, addr, ahc.UseCache) {
+	for i := range ahc.Allowed {
+		if ahc.Allowed[i].Contains(ctx, addr, ahc.UseCache) {
 			return true
 		}
 	}
