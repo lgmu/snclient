@@ -199,5 +199,6 @@ func (l *CheckMount) checkOptions(partition map[string]string) []string {
 	if len(exceeding) > 0 {
 		issues = append(issues, fmt.Sprintf("exceeding options: %s", strings.Join(exceeding, ", ")))
 	}
+
 	return issues
 }

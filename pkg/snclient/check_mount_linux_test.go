@@ -24,7 +24,7 @@ func TestMount(t *testing.T) {
 
 	res = snc.RunCheck("check_mount", []string{"mount=/", "critical=mount eq '/' and options ne 'dummyoptions'"})
 	assert.Equalf(t, CheckExitCritical, res.State, "state Critical")
-	assert.Contains(t, string(res.BuildPluginOutput()), "CRITICAL - critical(mount / )", "output matches")
+	assert.Contains(t, string(res.BuildPluginOutput()), "CRITICAL - mount / ", "output matches")
 
 	inv, err := snc.getInventoryEntry(t.Context(), "check_mount")
 	require.NoError(t, err)
