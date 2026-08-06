@@ -83,36 +83,7 @@ func (l *CheckMount) Check(ctx context.Context, _ *Agent, check *CheckData, _ []
 		if l.expectFSType != "" && !strings.EqualFold(l.expectFSType, partition["fstype"]) {
 			continue
 		}
-		issues := []string{}
-		if l.expectOptions != "" {
-			optsWant := strings.Split(l.expectOptions, ",")
-			optsWantH := make(map[string]bool)
-			for _, opt := range optsWant {
-				optsWantH[opt] = true
-			}
-			optsHaveH := make(map[string]bool)
-			for opt := range strings.SplitSeq(partition["options"], ",") {
-				optsHaveH[opt] = true
-			}
-			missing := []string{}
-			for k := range optsWantH {
-				if _, ok := optsHaveH[k]; !ok {
-					missing = append(missing, k)
-				}
-			}
-			if len(missing) > 0 {
-				issues = append(issues, fmt.Sprintf("missing options: %s", strings.Join(missing, ", ")))
-			}
-			exceeding := []string{}
-			for k := range optsHaveH {
-				if _, ok := optsWantH[k]; !ok {
-					exceeding = append(exceeding, k)
-				}
-			}
-			if len(exceeding) > 0 {
-				issues = append(issues, fmt.Sprintf("exceeding options: %s", strings.Join(exceeding, ", ")))
-			}
-		}
+		issues := l.checkOptions(partition)
 		if l.expectFSType != "" && !strings.EqualFold(l.expectFSType, partition["fstype"]) {
 			issues = append(issues, fmt.Sprintf("expected fstype differs: %s != %s", l.expectFSType, partition["fstype"]))
 		}
@@ -194,4 +165,39 @@ func (l *CheckMount) getDrives(ctx context.Context, partitionMap map[string]bool
 	}
 
 	return drives, nil
+}
+
+func (l *CheckMount) checkOptions(partition map[string]string) []string {
+	issues := []string{}
+	if l.expectOptions == "" {
+		return issues
+	}
+	optsWant := strings.Split(l.expectOptions, ",")
+	optsWantH := make(map[string]bool)
+	for _, opt := range optsWant {
+		optsWantH[opt] = true
+	}
+	optsHaveH := make(map[string]bool)
+	for opt := range strings.SplitSeq(partition["options"], ",") {
+		optsHaveH[opt] = true
+	}
+	missing := []string{}
+	for k := range optsWantH {
+		if _, ok := optsHaveH[k]; !ok {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		issues = append(issues, fmt.Sprintf("missing options: %s", strings.Join(missing, ", ")))
+	}
+	exceeding := []string{}
+	for k := range optsHaveH {
+		if _, ok := optsWantH[k]; !ok {
+			exceeding = append(exceeding, k)
+		}
+	}
+	if len(exceeding) > 0 {
+		issues = append(issues, fmt.Sprintf("exceeding options: %s", strings.Join(exceeding, ", ")))
+	}
+	return issues
 }
