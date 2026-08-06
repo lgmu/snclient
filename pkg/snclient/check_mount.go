@@ -55,7 +55,7 @@ func (l *CheckMount) Build() *CheckData {
 		},
 		exampleDefault: `
     check_mount mount=/ options=rw,relatime fstype=ext4
-    OK - mounts are as expected
+    OK - 1 mount(s) as expected
 	`,
 		exampleArgs: `'mount=/' 'options=rw,relatime'`,
 	}
