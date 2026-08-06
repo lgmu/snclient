@@ -31,10 +31,12 @@ func (l *CheckMount) getVolumes(ctx context.Context, check *CheckData, partition
 			continue
 		}
 		partitionMap[mountPoint] = true
-		if l.mountPoint != "" && mountPoint != l.mountPoint {
-			log.Tracef("skipped mountpoint: %s - not matching mount argument", mountPoint)
+		if len(l.mountPoints) > 0 {
+			if !slices.Contains(l.mountPoints, mountPoint) {
+				log.Tracef("skipped mountpoint: %s - not matching mount argument", mountPoint)
 
-			continue
+				continue
+			}
 		}
 		// skip internal filesystems
 		if slices.Contains(excludes, partition["fstype"]) {
