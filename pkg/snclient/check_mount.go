@@ -16,7 +16,7 @@ func init() {
 }
 
 type CheckMount struct {
-	mountPoint    string
+	mountPoints   []string
 	expectOptions string
 	expectFSType  string
 }
@@ -35,12 +35,12 @@ func (l *CheckMount) Build() *CheckData {
 			State: CheckExitOK,
 		},
 		args: map[string]CheckArgument{
-			"mount":   {value: &l.mountPoint, description: "The mount point to check"},
+			"mount":   {value: &l.mountPoints, description: "The mount point to check"},
 			"options": {value: &l.expectOptions, description: "The mount options to expect"},
 			"fstype":  {value: &l.expectFSType, description: "The fstype to expect"},
 		},
 		detailSyntax:    "mount ${mount} ${issues}",
-		okSyntax:        "${status} - mounts are as expected",
+		okSyntax:        "${status} - ${count} mount(s) as expected",
 		topSyntax:       "${status} - ${problem_list}",
 		defaultWarning:  "issues != ''",
 		defaultCritical: "issues like 'not mounted'",
@@ -55,15 +55,17 @@ func (l *CheckMount) Build() *CheckData {
 		},
 		exampleDefault: `
     check_mount mount=/ options=rw,relatime fstype=ext4
-    OK - mounts are as expected
+    OK - 1 mount(s) as expected
 	`,
 		exampleArgs: `'mount=/' 'options=rw,relatime'`,
 	}
 }
 
 func (l *CheckMount) Check(ctx context.Context, _ *Agent, check *CheckData, _ []Argument) (*CheckResult, error) {
-	if len(l.mountPoint) > 1 {
-		l.mountPoint = strings.TrimSuffix(l.mountPoint, string(os.PathSeparator))
+	for i, m := range l.mountPoints {
+		if len(m) > 1 {
+			l.mountPoints[i] = strings.TrimSuffix(m, string(os.PathSeparator))
+		}
 	}
 	partitionMap := map[string]bool{}
 	partitions, err := l.getDrives(ctx, partitionMap)
@@ -81,36 +83,7 @@ func (l *CheckMount) Check(ctx context.Context, _ *Agent, check *CheckData, _ []
 		if l.expectFSType != "" && !strings.EqualFold(l.expectFSType, partition["fstype"]) {
 			continue
 		}
-		issues := []string{}
-		if l.expectOptions != "" {
-			optsWant := strings.Split(l.expectOptions, ",")
-			optsWantH := make(map[string]bool)
-			for _, opt := range optsWant {
-				optsWantH[opt] = true
-			}
-			optsHaveH := make(map[string]bool)
-			for opt := range strings.SplitSeq(partition["options"], ",") {
-				optsHaveH[opt] = true
-			}
-			missing := []string{}
-			for k := range optsWantH {
-				if _, ok := optsHaveH[k]; !ok {
-					missing = append(missing, k)
-				}
-			}
-			if len(missing) > 0 {
-				issues = append(issues, fmt.Sprintf("missing options: %s", strings.Join(missing, ", ")))
-			}
-			exceeding := []string{}
-			for k := range optsHaveH {
-				if _, ok := optsWantH[k]; !ok {
-					exceeding = append(exceeding, k)
-				}
-			}
-			if len(exceeding) > 0 {
-				issues = append(issues, fmt.Sprintf("exceeding options: %s", strings.Join(exceeding, ", ")))
-			}
-		}
+		issues := l.checkOptions(partition)
 		if l.expectFSType != "" && !strings.EqualFold(l.expectFSType, partition["fstype"]) {
 			issues = append(issues, fmt.Sprintf("expected fstype differs: %s != %s", l.expectFSType, partition["fstype"]))
 		}
@@ -121,10 +94,10 @@ func (l *CheckMount) Check(ctx context.Context, _ *Agent, check *CheckData, _ []
 	}
 
 	// check if a mountpoint was supplied but not yet found
-	if l.mountPoint != "" {
-		if _, ok := partitionMap[l.mountPoint]; !ok {
+	for _, m := range l.mountPoints {
+		if _, ok := partitionMap[m]; !ok {
 			entry := map[string]string{
-				"mount":   l.mountPoint,
+				"mount":   m,
 				"device":  "",
 				"fstype":  "",
 				"options": "",
@@ -148,8 +121,8 @@ func (l *CheckMount) getDrives(ctx context.Context, partitionMap map[string]bool
 	for i := range partitions {
 		partition := partitions[i]
 		partitionMap[partition.Mountpoint] = true
-		if l.mountPoint != "" {
-			if partition.Mountpoint != l.mountPoint {
+		if len(l.mountPoints) > 0 {
+			if !slices.Contains(l.mountPoints, partition.Mountpoint) {
 				log.Tracef("skipped mountpoint: %s - not matching mount argument", partition.Mountpoint)
 
 				continue
@@ -192,4 +165,40 @@ func (l *CheckMount) getDrives(ctx context.Context, partitionMap map[string]bool
 	}
 
 	return drives, nil
+}
+
+func (l *CheckMount) checkOptions(partition map[string]string) []string {
+	issues := []string{}
+	if l.expectOptions == "" {
+		return issues
+	}
+	optsWant := strings.Split(l.expectOptions, ",")
+	optsWantH := make(map[string]bool)
+	for _, opt := range optsWant {
+		optsWantH[opt] = true
+	}
+	optsHaveH := make(map[string]bool)
+	for opt := range strings.SplitSeq(partition["options"], ",") {
+		optsHaveH[opt] = true
+	}
+	missing := []string{}
+	for k := range optsWantH {
+		if _, ok := optsHaveH[k]; !ok {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		issues = append(issues, fmt.Sprintf("missing options: %s", strings.Join(missing, ", ")))
+	}
+	exceeding := []string{}
+	for k := range optsHaveH {
+		if _, ok := optsWantH[k]; !ok {
+			exceeding = append(exceeding, k)
+		}
+	}
+	if len(exceeding) > 0 {
+		issues = append(issues, fmt.Sprintf("exceeding options: %s", strings.Join(exceeding, ", ")))
+	}
+
+	return issues
 }
