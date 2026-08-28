@@ -746,6 +746,7 @@ DOC_COMMANDS=\
 	check_pdh \
 	check_ping \
 	check_process \
+	check_registry \
 	check_snclient_version \
 	check_tasksched \
 	check_temperature \

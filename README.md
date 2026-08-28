@@ -86,6 +86,7 @@ Further details are covered in the [documentation](https://omd.consol.de/docs/sn
 | **check_pdh**                     |    X    |         |         |         |
 | **check_ping**                    |    X    |    X    |    X    |    X    |
 | **check_process**                 |    X    |    X    |    X    |    X    |
+| **check_registry**                |    X    |         |         |         |
 | **check_service**                 |    X    |    X    |         |         |
 | **check_snclient_version**        |    X    |    X    |    X    |    X    |
 | **check_swap_io**                 |         |    X    |    X    |    X    |
