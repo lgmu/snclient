@@ -112,7 +112,6 @@ max entries limit = 2
 		assert.Equal(t, CheckExitUnknown, res.State)
 		assert.Contains(t, string(res.BuildPluginOutput()), "maximum number of registry entries reached")
 	})
-
 }
 
 func TestRenderRegistryValue(t *testing.T) {
