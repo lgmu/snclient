@@ -73,7 +73,7 @@ Naemon Config
 | exclude     | Case-insensitive path glob for omitting discovered registry entries. Use \* within one path segment or \*\* across subkeys. |
 | key         | Registry key to check. Can be specified multiple times (for example: HKLM\Software\MyApp).              |
 | max-depth   | Maximum recursion depth below the starting key. -1 is unlimited. Requires recursive. Default: -1        |
-| max-entries | Maximum number of registry entries to process. Default: 5000                                           |
+| max-entries | Maximum number of registry entries to process. Default: 5000                                            |
 | recursive   | Recursively enumerate subkeys. In value mode, values in the subkeys are included as well. Default: false |
 | timezone    | Sets the timezone for time metrics (default is local time)                                              |
 | value       | Registry value to check. Can be specified multiple times. Use '\*' to enumerate all values or '(default)' for the unnamed value. If omitted, registry keys are checked. |

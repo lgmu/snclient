@@ -16,6 +16,18 @@ import (
 
 func TestCheckRegistryWindows(t *testing.T) {
 	rootPath := prepareRegistryTestData(t)
+	t.Run("configured entry limit", func(t *testing.T) {
+		limitedSnc := StartTestAgent(t, `
+[/settings/check/registry]
+max entries limit = 2
+`)
+		t.Cleanup(func() { StopTestAgent(t, limitedSnc) })
+
+		res := limitedSnc.RunCheck("check_registry", []string{"key=HKCU\\" + rootPath, "value=*", "max-entries=100"})
+		assert.Equal(t, CheckExitUnknown, res.State)
+		assert.Contains(t, string(res.BuildPluginOutput()), "maximum number of registry entries reached")
+	})
+
 	snc := StartTestAgent(t, "")
 	t.Cleanup(func() { StopTestAgent(t, snc) })
 
@@ -101,17 +113,6 @@ func TestCheckRegistryWindows(t *testing.T) {
 		assert.Contains(t, string(res.BuildPluginOutput()), "maximum number of registry entries reached")
 	})
 
-	t.Run("configured entry limit", func(t *testing.T) {
-		limitedSnc := StartTestAgent(t, `
-[/settings/check/registry]
-max entries limit = 2
-`)
-		t.Cleanup(func() { StopTestAgent(t, limitedSnc) })
-
-		res := limitedSnc.RunCheck("check_registry", []string{"key=HKCU\\" + rootPath, "value=*", "max-entries=100"})
-		assert.Equal(t, CheckExitUnknown, res.State)
-		assert.Contains(t, string(res.BuildPluginOutput()), "maximum number of registry entries reached")
-	})
 }
 
 func TestRenderRegistryValue(t *testing.T) {
